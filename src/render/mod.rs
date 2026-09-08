@@ -4,6 +4,7 @@ pub mod chart;
 pub mod dashboard;
 pub mod html;
 pub mod map;
+pub mod md;
 pub mod table;
 pub mod timeline;
 

@@ -9,6 +9,7 @@ use render::{
     dashboard::DashboardRenderer,
     html::HtmlRenderer,
     map::MapRenderer,
+    md::MarkdownRenderer,
     table::TableRenderer,
     timeline::TimelineRenderer,
 };
@@ -23,6 +24,7 @@ enum Mode {
     Timeline,
     Map,
     Html,
+    Md,
 }
 
 /// A universal renderer for structured CLI output — see docs/presentation-command.md
@@ -74,6 +76,7 @@ fn resolve_mode(cli_mode: Option<Mode>, schema: Option<&str>) -> Mode {
         Some("timeline") => Mode::Timeline,
         Some("map") => Mode::Map,
         Some("html") => Mode::Html,
+        Some("md") => Mode::Md,
         Some(other) => {
             eprintln!(
                 "presentation: renderer '{other}' for schema '{schema}' is not implemented yet; falling back to table"
@@ -117,6 +120,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Mode::Timeline => Box::new(TimelineRenderer),
         Mode::Map => Box::new(MapRenderer),
         Mode::Html => Box::new(HtmlRenderer),
+        Mode::Md => Box::new(MarkdownRenderer),
     };
     let rendered = renderer.render(&envelope.data, &options)?;
 
