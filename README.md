@@ -12,7 +12,16 @@ myapp --json                | presentation
 
 That last one has no mode at all: if the payload carries a `schema` field, `presentation` picks a sensible renderer for you.
 
+## Demo
+
+![presentation dashboard and map modes, animated](docs/assets/demo.gif)
+
+<details>
+<summary>Static version</summary>
+
 ![presentation dashboard and map modes](docs/assets/demo.svg)
+
+</details>
 
 ## Why
 
