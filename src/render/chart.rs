@@ -10,7 +10,7 @@ use crossterm::style::{Color, Stylize};
 use serde_json::{Map, Value};
 use std::error::Error;
 
-const LABEL_FIELDS: &[&str] = &["name", "label", "interface", "timestamp"];
+const LABEL_FIELDS: &[&str] = &["name", "label", "interface", "hostname", "timestamp"];
 const VALUE_FIELDS: &[&str] = &["value", "usage", "count", "temperature"];
 const SPARK: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 const PALETTE: [Color; 6] = [

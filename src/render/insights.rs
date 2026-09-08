@@ -5,7 +5,15 @@
 use super::{DOWN_VALUES, STATUS_FIELDS, cell_text, columns};
 use serde_json::Value;
 
-const LABEL_FIELDS: &[&str] = &["name", "interface", "label", "id", "ssid", "host"];
+const LABEL_FIELDS: &[&str] = &[
+    "name",
+    "interface",
+    "label",
+    "id",
+    "ssid",
+    "host",
+    "hostname",
+];
 
 pub(super) struct Insights {
     pub total: usize,
@@ -134,6 +142,20 @@ mod tests {
         let status = insights.status.unwrap();
         assert_eq!(status.field, "status");
         assert_eq!(status.flagged, vec!["db".to_string()]);
+    }
+
+    #[test]
+    fn hostname_is_recognized_as_a_label_field() {
+        // Regression: "hostname" (distinct from "host") was missing from
+        // LABEL_FIELDS, so flagged records fell back to "#2" instead of
+        // the actual hostname.
+        let rows = [
+            json!({"hostname": "web-01", "status": "up"}),
+            json!({"hostname": "web-02", "status": "down"}),
+        ];
+        let refs: Vec<&Value> = rows.iter().collect();
+        let insights = analyze(&refs);
+        assert_eq!(insights.status.unwrap().flagged, vec!["web-02".to_string()]);
     }
 
     #[test]
