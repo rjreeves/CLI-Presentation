@@ -2,6 +2,7 @@
 
 pub mod chart;
 pub mod dashboard;
+pub mod html;
 pub mod map;
 pub mod table;
 pub mod timeline;
@@ -68,6 +69,14 @@ pub(crate) fn truncate(s: &str, width: usize) -> String {
         let head: String = s.chars().take(width - 1).collect();
         format!("{head}…")
     }
+}
+
+/// Column names for a set of records, taken from the first record's keys.
+pub(crate) fn columns(rows: &[&Value]) -> Vec<String> {
+    rows.first()
+        .and_then(|v| v.as_object())
+        .map(|obj| obj.keys().cloned().collect())
+        .unwrap_or_default()
 }
 
 /// Finds the first of `candidates` that exists as a key in `obj`.

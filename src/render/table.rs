@@ -1,6 +1,6 @@
 //! `table` mode — see docs/presentation-command.md §3.
 
-use super::{RenderOptions, Renderer, cell_text, sorted_filtered, truncate};
+use super::{RenderOptions, Renderer, cell_text, columns, sorted_filtered, truncate};
 use crossterm::style::{Color, Stylize};
 use serde_json::Value;
 use std::error::Error;
@@ -53,13 +53,6 @@ impl Renderer for TableRenderer {
 
         Ok(out)
     }
-}
-
-fn columns(rows: &[&Value]) -> Vec<String> {
-    rows.first()
-        .and_then(|v| v.as_object())
-        .map(|obj| obj.keys().cloned().collect())
-        .unwrap_or_default()
 }
 
 fn format_row(columns: &[String], widths: &[usize]) -> String {
