@@ -2,6 +2,7 @@
 
 pub mod chart;
 pub mod dashboard;
+pub mod map;
 pub mod table;
 pub mod timeline;
 
