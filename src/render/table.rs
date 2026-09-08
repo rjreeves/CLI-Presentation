@@ -96,3 +96,78 @@ fn colorize(column: &str, value: &str, padded: String) -> String {
         _ => padded,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn opts() -> RenderOptions {
+        RenderOptions {
+            sort: None,
+            filter: None,
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn renders_header_divider_and_rows() {
+        // Single column keeps the expected widths trivial to verify by hand:
+        // natural width = max(header len, cell len) = max(1, 1) = 1.
+        let data = vec![json!({"a": "x"})];
+        let out = TableRenderer.render(&data, &opts()).unwrap();
+        assert_eq!(out, "a\n-\nx\n");
+    }
+
+    #[test]
+    fn pads_columns_to_the_widest_value() {
+        let data = vec![json!({"name": "web"})];
+        let out = TableRenderer.render(&data, &opts()).unwrap();
+        // header "name" (4 chars) vs cell "web" (3 chars) -> cell padded to 4.
+        let lines: Vec<&str> = out.lines().collect();
+        assert_eq!(lines[0], "name");
+        assert_eq!(lines[2], "web ");
+    }
+
+    #[test]
+    fn empty_data_renders_empty_string() {
+        let out = TableRenderer.render(&[], &opts()).unwrap();
+        assert_eq!(out, "");
+    }
+
+    #[test]
+    fn width_option_caps_and_truncates_columns() {
+        let data = vec![json!({"a": "this is a very long value"})];
+        let mut options = opts();
+        options.width = Some(20);
+        let out = TableRenderer.render(&data, &options).unwrap();
+        // one column, cap = (20 / 1).max(4) = 20
+        assert!(out.lines().all(|l| l.chars().count() <= 20));
+        assert!(out.contains('…'));
+    }
+
+    #[test]
+    fn color_only_applies_to_status_like_columns() {
+        let data = vec![json!({"status": "down", "note": "down"})];
+        let mut options = opts();
+        options.color = true;
+        let out = TableRenderer.render(&data, &options).unwrap();
+        // "status" cell should carry an ANSI escape; "note" cell (same text,
+        // different column) should not.
+        let rows_line = out.lines().nth(2).unwrap();
+        assert!(rows_line.contains("\x1b["));
+    }
+
+    #[test]
+    fn colorize_ignores_non_status_columns() {
+        let padded = "down".to_string();
+        assert_eq!(colorize("note", "down", padded.clone()), padded);
+    }
+
+    #[test]
+    fn colorize_leaves_unrecognized_values_plain() {
+        let padded = "unknown".to_string();
+        assert_eq!(colorize("status", "unknown", padded.clone()), padded);
+    }
+}

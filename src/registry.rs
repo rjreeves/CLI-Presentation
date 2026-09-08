@@ -312,3 +312,130 @@ fn json_type_name(value: &Value) -> &'static str {
         Value::Object(_) => "object",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn default_renderer_covers_the_documented_table() {
+        assert_eq!(default_renderer("network.ip"), Some("map"));
+        assert_eq!(default_renderer("network.wifi"), Some("dashboard"));
+        assert_eq!(default_renderer("logs.events"), Some("timeline"));
+        assert_eq!(default_renderer("fs.directory"), Some("table"));
+        assert_eq!(default_renderer("docker.stats"), Some("dashboard"));
+        assert_eq!(default_renderer("k8s.pods"), Some("table"));
+        assert_eq!(default_renderer("system.perf.cpu"), Some("chart"));
+        assert_eq!(default_renderer("system.perf.memory"), Some("chart"));
+        assert_eq!(default_renderer("unknown.schema"), None);
+    }
+
+    #[test]
+    fn docker_stats_and_k8s_pods_have_no_documented_fields() {
+        assert!(builtin_fields("docker.stats").is_none());
+        assert!(builtin_fields("k8s.pods").is_none());
+        assert!(builtin_fields("network.ip").is_some());
+    }
+
+    #[test]
+    fn type_matches_checks_the_base_type_only() {
+        assert!(type_matches("string", &json!("x")));
+        assert!(!type_matches("string", &json!(1)));
+        assert!(type_matches("number", &json!(1.5)));
+        assert!(type_matches("boolean", &json!(true)));
+        assert!(type_matches("array<string>", &json!(["a"])));
+        assert!(!type_matches("array<string>", &json!("not an array")));
+    }
+
+    #[test]
+    fn field_warnings_null_on_a_nullable_field_is_not_a_warning() {
+        // Regression: an explicit `null` on a field declared "string|null"
+        // was once wrongly flagged as a type mismatch.
+        let rows = vec![json!({"ipv6": null})];
+        let mut fields = BTreeMap::new();
+        fields.insert("ipv6".to_string(), "string|null".to_string());
+        assert!(field_warnings(&rows, &fields).is_empty());
+    }
+
+    #[test]
+    fn field_warnings_null_on_a_required_field_is_a_warning() {
+        let rows = vec![json!({"status": null})];
+        let mut fields = BTreeMap::new();
+        fields.insert("status".to_string(), "string".to_string());
+        let warnings = field_warnings(&rows, &fields);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("not nullable"));
+    }
+
+    #[test]
+    fn field_warnings_missing_required_field() {
+        let rows = vec![json!({})];
+        let mut fields = BTreeMap::new();
+        fields.insert("status".to_string(), "string".to_string());
+        let warnings = field_warnings(&rows, &fields);
+        assert_eq!(
+            warnings,
+            vec!["record 1: missing required field 'status'".to_string()]
+        );
+    }
+
+    #[test]
+    fn field_warnings_missing_nullable_field_is_fine() {
+        let rows = vec![json!({})];
+        let mut fields = BTreeMap::new();
+        fields.insert("gateway".to_string(), "string|null".to_string());
+        assert!(field_warnings(&rows, &fields).is_empty());
+    }
+
+    #[test]
+    fn field_warnings_unknown_extra_field_is_ignored() {
+        let rows = vec![json!({"status": "up", "extra": "whatever"})];
+        let mut fields = BTreeMap::new();
+        fields.insert("status".to_string(), "string".to_string());
+        assert!(field_warnings(&rows, &fields).is_empty());
+    }
+
+    #[test]
+    fn field_warnings_type_mismatch() {
+        let rows = vec![json!({"ipv4": 123})];
+        let mut fields = BTreeMap::new();
+        fields.insert("ipv4".to_string(), "string".to_string());
+        let warnings = field_warnings(&rows, &fields);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("expected string but got number"));
+    }
+
+    fn temp_file(name: &str, contents: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "presentation-test-{name}-{}.json",
+            std::process::id()
+        ));
+        std::fs::write(&path, contents).unwrap();
+        path
+    }
+
+    #[test]
+    fn parse_fields_file_accepts_a_flat_field_map() {
+        let path = temp_file("flat", r#"{"a": "string", "b": "number"}"#);
+        let fields = parse_fields_file(path.to_str().unwrap()).unwrap();
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(fields.get("a"), Some(&"string".to_string()));
+        assert_eq!(fields.get("b"), Some(&"number".to_string()));
+    }
+
+    #[test]
+    fn parse_fields_file_accepts_the_nested_schema_entry_shape() {
+        let path = temp_file(
+            "nested",
+            r#"{"version": "1.0", "default_renderer": "chart", "fields": {"name": "string"}}"#,
+        );
+        let fields = parse_fields_file(path.to_str().unwrap()).unwrap();
+        std::fs::remove_file(&path).ok();
+
+        // Only the nested "fields" map is extracted, not "version"/"default_renderer".
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields.get("name"), Some(&"string".to_string()));
+    }
+}

@@ -94,3 +94,58 @@ pub(super) fn record_label(row: &Value, index: usize, label_field: Option<&str>)
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| format!("#{}", index + 1))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn numeric_insight_computes_min_max_avg() {
+        let rows = [
+            json!({"cpu": 10.0}),
+            json!({"cpu": 20.0}),
+            json!({"cpu": 30.0}),
+        ];
+        let refs: Vec<&Value> = rows.iter().collect();
+        let insights = analyze(&refs);
+        let cpu = insights.numeric.iter().find(|n| n.field == "cpu").unwrap();
+        assert_eq!(cpu.min, 10.0);
+        assert_eq!(cpu.max, 30.0);
+        assert_eq!(cpu.avg, 20.0);
+    }
+
+    #[test]
+    fn numeric_insight_skipped_when_field_is_not_numeric_on_every_row() {
+        let rows = [json!({"speed": "1Gbps"}), json!({"speed": null})];
+        let refs: Vec<&Value> = rows.iter().collect();
+        let insights = analyze(&refs);
+        assert!(insights.numeric.iter().all(|n| n.field != "speed"));
+    }
+
+    #[test]
+    fn status_insight_lists_flagged_records_by_label() {
+        let rows = [
+            json!({"name": "web", "status": "up"}),
+            json!({"name": "db", "status": "down"}),
+        ];
+        let refs: Vec<&Value> = rows.iter().collect();
+        let insights = analyze(&refs);
+        let status = insights.status.unwrap();
+        assert_eq!(status.field, "status");
+        assert_eq!(status.flagged, vec!["db".to_string()]);
+    }
+
+    #[test]
+    fn record_label_falls_back_to_index_when_label_is_empty() {
+        let row = json!({"name": ""});
+        assert_eq!(record_label(&row, 0, Some("name")), "#1");
+    }
+
+    #[test]
+    fn no_status_field_means_no_status_insight() {
+        let rows = [json!({"a": 1})];
+        let refs: Vec<&Value> = rows.iter().collect();
+        assert!(analyze(&refs).status.is_none());
+    }
+}

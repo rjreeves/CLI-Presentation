@@ -119,3 +119,52 @@ fn document(body: &str) -> String {
 "#
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn opts() -> RenderOptions {
+        RenderOptions {
+            sort: None,
+            filter: None,
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn script_tag_in_a_value_is_escaped() {
+        let data = [json!({"interface": "<script>alert(1)</script>"})];
+        let out = HtmlRenderer.render(&data, &opts()).unwrap();
+        assert!(!out.contains("<script>alert(1)</script>"));
+        assert!(out.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+    }
+
+    #[test]
+    fn empty_data_shows_no_data_message() {
+        let out = HtmlRenderer.render(&[], &opts()).unwrap();
+        assert!(out.contains("No data."));
+        assert!(!out.contains("<table>"));
+    }
+
+    #[test]
+    fn flagged_count_appears_only_when_a_status_is_down() {
+        let healthy = [json!({"status": "up"})];
+        let out = HtmlRenderer.render(&healthy, &opts()).unwrap();
+        assert!(!out.contains("flagged"));
+
+        let unhealthy = [json!({"status": "up"}), json!({"status": "down"})];
+        let out = HtmlRenderer.render(&unhealthy, &opts()).unwrap();
+        assert!(out.contains("1 flagged"));
+    }
+
+    #[test]
+    fn status_class_maps_up_and_down_values() {
+        assert_eq!(status_class("status", "Up"), "flag-up");
+        assert_eq!(status_class("status", "Down"), "flag-down");
+        assert_eq!(status_class("status", "unknown"), "");
+        assert_eq!(status_class("other", "down"), "");
+    }
+}

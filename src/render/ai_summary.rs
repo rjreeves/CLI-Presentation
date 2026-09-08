@@ -53,3 +53,70 @@ impl Renderer for AiSummaryRenderer {
         Ok(sentence)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn opts() -> RenderOptions {
+        RenderOptions {
+            sort: None,
+            filter: None,
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn empty_data_short_circuits_with_a_plain_message() {
+        let out = AiSummaryRenderer {
+            level: ExplainLevel::Brief,
+        }
+        .render(&[], &opts())
+        .unwrap();
+        assert_eq!(out, "No data to summarize.\n");
+    }
+
+    #[test]
+    fn stays_a_single_line_even_at_detailed_level() {
+        let data = vec![
+            json!({"name": "web", "cpu": 10.0}),
+            json!({"name": "db", "cpu": 90.0}),
+        ];
+        let out = AiSummaryRenderer {
+            level: ExplainLevel::Detailed,
+        }
+        .render(&data, &opts())
+        .unwrap();
+        assert_eq!(out.lines().count(), 1);
+    }
+
+    #[test]
+    fn detailed_adds_average_brief_does_not() {
+        let data = vec![json!({"cpu": 10.0}), json!({"cpu": 90.0})];
+        let brief = AiSummaryRenderer {
+            level: ExplainLevel::Brief,
+        }
+        .render(&data, &opts())
+        .unwrap();
+        let detailed = AiSummaryRenderer {
+            level: ExplainLevel::Detailed,
+        }
+        .render(&data, &opts())
+        .unwrap();
+        assert!(!brief.contains("avg"));
+        assert!(detailed.contains("avg 50.0"));
+    }
+
+    #[test]
+    fn omits_flagged_clause_when_nothing_is_down() {
+        let data = vec![json!({"status": "up"})];
+        let out = AiSummaryRenderer {
+            level: ExplainLevel::Brief,
+        }
+        .render(&data, &opts())
+        .unwrap();
+        assert!(!out.contains("flagged"));
+    }
+}

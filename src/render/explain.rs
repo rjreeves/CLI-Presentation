@@ -109,3 +109,71 @@ fn magnitude(value: f64, min: f64, max: f64) -> &'static str {
         "moderate"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn opts() -> RenderOptions {
+        RenderOptions {
+            sort: None,
+            filter: None,
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn magnitude_thresholds() {
+        assert_eq!(magnitude(0.0, 0.0, 100.0), "low");
+        assert_eq!(magnitude(30.0, 0.0, 100.0), "low");
+        assert_eq!(magnitude(50.0, 0.0, 100.0), "moderate");
+        assert_eq!(magnitude(70.0, 0.0, 100.0), "high");
+        assert_eq!(magnitude(100.0, 0.0, 100.0), "high");
+    }
+
+    #[test]
+    fn magnitude_handles_a_zero_range_without_dividing_by_zero() {
+        // min == max: (value - min) is 0.0, divided by the epsilon-widened
+        // range is still 0.0 — deterministically "low", not NaN or a panic.
+        assert_eq!(magnitude(5.0, 5.0, 5.0), "low");
+    }
+
+    #[test]
+    fn empty_data_short_circuits_with_a_plain_message() {
+        let out = ExplainRenderer {
+            level: ExplainLevel::Brief,
+        }
+        .render(&[], &opts())
+        .unwrap();
+        assert_eq!(out, "No data to explain.\n");
+    }
+
+    #[test]
+    fn brief_reports_all_healthy_when_nothing_is_flagged() {
+        let data = vec![json!({"status": "up"})];
+        let out = ExplainRenderer {
+            level: ExplainLevel::Brief,
+        }
+        .render(&data, &opts())
+        .unwrap();
+        assert!(out.contains("All records look healthy"));
+    }
+
+    #[test]
+    fn detailed_includes_brief_plus_a_bullet_per_record() {
+        let data = vec![
+            json!({"name": "web", "cpu": 90.0}),
+            json!({"name": "db", "cpu": 10.0}),
+        ];
+        let out = ExplainRenderer {
+            level: ExplainLevel::Detailed,
+        }
+        .render(&data, &opts())
+        .unwrap();
+        assert!(out.contains("This dataset has 2 record(s)."));
+        assert!(out.contains("- web: cpu is 90.0 (high)."));
+        assert!(out.contains("- db: cpu is 10.0 (low)."));
+    }
+}

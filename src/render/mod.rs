@@ -117,3 +117,109 @@ pub(crate) fn escape_html(s: &str) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn value_text_renders_null_as_empty() {
+        assert_eq!(value_text(&json!(null)), "");
+        assert_eq!(value_text(&json!("hi")), "hi");
+        assert_eq!(value_text(&json!(42)), "42");
+    }
+
+    #[test]
+    fn cell_text_missing_field_is_empty() {
+        let row = json!({"a": 1});
+        assert_eq!(cell_text(&row, "a"), "1");
+        assert_eq!(cell_text(&row, "missing"), "");
+    }
+
+    #[test]
+    fn truncate_short_string_is_unchanged() {
+        assert_eq!(truncate("hi", 10), "hi");
+    }
+
+    #[test]
+    fn truncate_long_string_gets_ellipsis() {
+        assert_eq!(truncate("hello world", 5), "hell…");
+    }
+
+    #[test]
+    fn truncate_zero_width_is_empty() {
+        assert_eq!(truncate("hello", 0), "");
+    }
+
+    #[test]
+    fn truncate_is_char_safe_not_byte_safe() {
+        // "café" truncated to 3 chars must not panic on the multi-byte 'é'.
+        assert_eq!(truncate("café", 3), "ca…");
+    }
+
+    #[test]
+    fn columns_from_first_row() {
+        let rows = [json!({"b": 1, "a": 2})];
+        let refs: Vec<&Value> = rows.iter().collect();
+        let mut cols = columns(&refs);
+        cols.sort();
+        assert_eq!(cols, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn columns_of_empty_rows_is_empty() {
+        let refs: Vec<&Value> = vec![];
+        assert!(columns(&refs).is_empty());
+    }
+
+    #[test]
+    fn pick_field_prefers_first_candidate_present() {
+        let obj = json!({"time": "t", "timestamp": "ts"})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert_eq!(
+            pick_field(&obj, &["timestamp", "time"]),
+            Some("timestamp".to_string())
+        );
+        assert_eq!(
+            pick_field(&obj, &["date", "time"]),
+            Some("time".to_string())
+        );
+        assert_eq!(pick_field(&obj, &["date"]), None);
+    }
+
+    #[test]
+    fn escape_html_covers_all_five_entities() {
+        assert_eq!(
+            escape_html(r#"<script>alert('x') & "y"</script>"#),
+            "&lt;script&gt;alert(&#39;x&#39;) &amp; &quot;y&quot;&lt;/script&gt;"
+        );
+    }
+
+    fn opts(sort: Option<&str>, filter: Option<(&str, &str)>) -> RenderOptions {
+        RenderOptions {
+            sort: sort.map(str::to_string),
+            filter: filter.map(|(f, v)| (f.to_string(), v.to_string())),
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn sorted_filtered_sorts_numerically_when_both_sides_parse() {
+        let data = vec![json!({"v": 3}), json!({"v": 1}), json!({"v": 2})];
+        let rows = sorted_filtered(&data, &opts(Some("v"), None));
+        let values: Vec<i64> = rows.iter().map(|r| r["v"].as_i64().unwrap()).collect();
+        assert_eq!(values, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn sorted_filtered_applies_equality_filter() {
+        let data = vec![json!({"status": "up"}), json!({"status": "down"})];
+        let rows = sorted_filtered(&data, &opts(None, Some(("status", "down"))));
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["status"], "down");
+    }
+}

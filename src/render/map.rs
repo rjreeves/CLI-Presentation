@@ -103,3 +103,73 @@ fn style_node(label: &str, status: Option<&str>, color: bool) -> String {
         _ => label.to_string(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn opts() -> RenderOptions {
+        RenderOptions {
+            sort: None,
+            filter: None,
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn builds_full_three_level_tree() {
+        let data = vec![json!({
+            "interface": "Ethernet",
+            "gateway": "192.168.1.1",
+            "dns": ["8.8.8.8", "1.1.1.1"],
+            "status": "Up",
+        })];
+        let out = MapRenderer.render(&data, &opts()).unwrap();
+        let expected = [
+            "PC",
+            "└─ Ethernet",
+            "   ├─ 192.168.1.1",
+            "   │  ├─ 8.8.8.8",
+            "   │  └─ 1.1.1.1",
+            "",
+        ]
+        .join("\n");
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn node_without_gateway_or_dns_is_a_bare_leaf() {
+        let data = vec![json!({"interface": "vEthernet"})];
+        let out = MapRenderer.render(&data, &opts()).unwrap();
+        assert_eq!(out, "PC\n└─ vEthernet\n");
+    }
+
+    #[test]
+    fn missing_node_name_falls_back_to_index_label() {
+        let data = vec![json!({"gateway": "1.1.1.1"})];
+        let out = MapRenderer.render(&data, &opts()).unwrap();
+        assert!(out.contains("└─ #1"));
+    }
+
+    #[test]
+    fn empty_dns_array_is_treated_like_no_dns() {
+        let data = vec![json!({"interface": "eth0", "gateway": "1.1.1.1", "dns": []})];
+        let out = MapRenderer.render(&data, &opts()).unwrap();
+        // No DNS entries -> gateway is the last child, using the corner
+        // connector rather than a branch connector.
+        assert!(out.contains("└─ 1.1.1.1"));
+        assert!(!out.contains("├─ 1.1.1.1"));
+    }
+
+    #[test]
+    fn empty_data_renders_empty_string() {
+        assert_eq!(MapRenderer.render(&[], &opts()).unwrap(), "");
+    }
+
+    #[test]
+    fn style_node_without_color_returns_plain_label() {
+        assert_eq!(style_node("eth0", Some("down"), false), "eth0");
+    }
+}

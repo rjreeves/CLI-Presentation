@@ -115,3 +115,59 @@ fn escape(s: &str) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn opts() -> RenderOptions {
+        RenderOptions {
+            sort: None,
+            filter: None,
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn pipe_and_newline_in_a_value_do_not_corrupt_the_table() {
+        let data = vec![json!({"interface": "Weird | Name\nWithNewline"})];
+        let out = MarkdownRenderer.render(&data, &opts()).unwrap();
+        let table_line = out.lines().find(|l| l.starts_with("| Weird")).unwrap();
+        // One column -> exactly 3 pipes total: opening, the escaped '|'
+        // inside the value, and closing. An unescaped '|' or a literal
+        // embedded newline would add a phantom column or row instead.
+        assert_eq!(table_line.matches('|').count(), 3);
+        assert_eq!(table_line, r"| Weird \| Name WithNewline |");
+    }
+
+    #[test]
+    fn down_status_is_bolded_up_status_is_not() {
+        let data = vec![json!({"status": "up"}), json!({"status": "down"})];
+        let out = MarkdownRenderer.render(&data, &opts()).unwrap();
+        assert!(out.contains("**down**"));
+        assert!(!out.contains("**up**"));
+    }
+
+    #[test]
+    fn empty_data_shows_no_data_message() {
+        let out = MarkdownRenderer.render(&[], &opts()).unwrap();
+        assert!(out.contains("_No data._"));
+        assert!(!out.contains('|'));
+    }
+
+    #[test]
+    fn escape_handles_backslash_pipe_and_newline() {
+        assert_eq!(escape(r"back\slash"), r"back\\slash");
+        assert_eq!(escape("a|b"), r"a\|b");
+        assert_eq!(escape("a\nb"), "a b");
+    }
+
+    #[test]
+    fn is_flagged_only_for_status_like_columns_with_down_values() {
+        assert!(is_flagged("status", "down"));
+        assert!(!is_flagged("status", "up"));
+        assert!(!is_flagged("other", "down"));
+    }
+}

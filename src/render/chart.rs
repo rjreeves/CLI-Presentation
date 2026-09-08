@@ -181,3 +181,90 @@ fn pie_chart(series: &[(String, f64)], width: usize, color: bool) -> String {
 
     format!("[{bar}]\n{legend}")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn opts() -> RenderOptions {
+        RenderOptions {
+            sort: None,
+            filter: None,
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn extract_series_prefers_named_fields() {
+        let rows = [json!({"name": "requests", "value": 1200.0})];
+        let refs: Vec<&Value> = rows.iter().collect();
+        assert_eq!(
+            extract_series(&refs),
+            vec![("requests".to_string(), 1200.0)]
+        );
+    }
+
+    #[test]
+    fn extract_series_falls_back_to_first_numeric_and_index_label() {
+        let rows = [json!({"reading": 42.0})];
+        let refs: Vec<&Value> = rows.iter().collect();
+        assert_eq!(extract_series(&refs), vec![("#1".to_string(), 42.0)]);
+    }
+
+    #[test]
+    fn extract_series_empty_when_no_numeric_field() {
+        let rows = [json!({"name": "x"})];
+        let refs: Vec<&Value> = rows.iter().collect();
+        assert!(extract_series(&refs).is_empty());
+    }
+
+    #[test]
+    fn empty_data_renders_empty_string() {
+        let renderer = ChartRenderer {
+            chart_type: ChartType::Bar,
+        };
+        assert_eq!(renderer.render(&[], &opts()).unwrap(), "");
+    }
+
+    #[test]
+    fn bar_chart_fills_proportionally_to_max() {
+        let series = vec![("a".to_string(), 50.0), ("b".to_string(), 100.0)];
+        let out = bar_chart(&series, 50, false);
+        let lines: Vec<&str> = out.lines().collect();
+        // bar_width = 50 - (label_width=1 + 12) = 37; "a" at 50% -> round(18.5) = 18 or 19 filled blocks.
+        let a_filled = lines[0].matches('█').count();
+        let b_filled = lines[1].matches('█').count();
+        assert_eq!(b_filled, 37); // max value fills the whole bar
+        assert!(a_filled < b_filled && a_filled > 0);
+    }
+
+    #[test]
+    fn line_chart_maps_min_and_max_to_endpoints_of_the_spark_ramp() {
+        let series = vec![("a".to_string(), 0.0), ("b".to_string(), 100.0)];
+        let out = line_chart(&series, false);
+        let spark_line = out.lines().next().unwrap();
+        assert_eq!(spark_line.chars().next().unwrap(), SPARK[0]);
+        assert_eq!(spark_line.chars().nth(1).unwrap(), SPARK[SPARK.len() - 1]);
+    }
+
+    #[test]
+    fn pie_chart_percentages_sum_to_total() {
+        let series = vec![("a".to_string(), 25.0), ("b".to_string(), 75.0)];
+        let out = pie_chart(&series, 40, false);
+        assert!(out.contains("a: 25.0%"));
+        assert!(out.contains("b: 75.0%"));
+    }
+
+    #[test]
+    fn pie_chart_uses_distinct_glyphs_without_color() {
+        let series = vec![("a".to_string(), 50.0), ("b".to_string(), 50.0)];
+        let out = pie_chart(&series, 40, false);
+        let bar_line = out.lines().next().unwrap();
+        // Two equal-sized series must use two different glyphs so the
+        // segments stay distinguishable without color.
+        assert!(bar_line.contains(GLYPHS[0]));
+        assert!(bar_line.contains(GLYPHS[1]));
+    }
+}

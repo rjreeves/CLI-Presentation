@@ -140,3 +140,74 @@ fn colorize_badge(padded: &str, level: Option<&str>) -> String {
         _ => padded.to_string(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn opts() -> RenderOptions {
+        RenderOptions {
+            sort: None,
+            filter: None,
+            width: None,
+            color: false,
+        }
+    }
+
+    #[test]
+    fn defaults_to_chronological_order_when_sort_is_unset() {
+        let data = vec![
+            json!({"timestamp": "10:05", "message": "later"}),
+            json!({"timestamp": "10:00", "message": "earlier"}),
+        ];
+        let out = TimelineRenderer.render(&data, &opts()).unwrap();
+        let earlier_pos = out.find("earlier").unwrap();
+        let later_pos = out.find("later").unwrap();
+        assert!(earlier_pos < later_pos);
+    }
+
+    #[test]
+    fn explicit_sort_overrides_chronological_default() {
+        let data = vec![
+            json!({"timestamp": "10:00", "source": "b"}),
+            json!({"timestamp": "10:05", "source": "a"}),
+        ];
+        let mut options = opts();
+        options.sort = Some("source".to_string());
+        let out = TimelineRenderer.render(&data, &options).unwrap();
+        let a_pos = out.find("(a)").unwrap();
+        let b_pos = out.find("(b)").unwrap();
+        assert!(a_pos < b_pos);
+    }
+
+    #[test]
+    fn missing_message_field_falls_back_to_key_value_join() {
+        let data = vec![json!({"timestamp": "t1", "action": "deploy", "user": "alice"})];
+        let out = TimelineRenderer.render(&data, &opts()).unwrap();
+        assert!(out.contains("action=deploy"));
+        assert!(out.contains("user=alice"));
+    }
+
+    #[test]
+    fn last_entry_uses_corner_connector() {
+        let data = vec![json!({"timestamp": "t1", "message": "only"})];
+        let out = TimelineRenderer.render(&data, &opts()).unwrap();
+        assert!(out.contains("└─"));
+        assert!(!out.contains("├─"));
+    }
+
+    #[test]
+    fn empty_data_renders_empty_string() {
+        assert_eq!(TimelineRenderer.render(&[], &opts()).unwrap(), "");
+    }
+
+    #[test]
+    fn colorize_badge_leaves_padding_intact() {
+        // Color must wrap the already-padded text verbatim, not re-derive
+        // it, otherwise trailing padding spaces could be lost.
+        let padded = "[INFO]   ";
+        let colored = colorize_badge(padded, Some("info"));
+        assert!(colored.contains(padded));
+    }
+}

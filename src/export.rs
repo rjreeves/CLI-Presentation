@@ -115,3 +115,61 @@ fn svg(rendered: &str) -> String {
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\">\n  <rect width=\"100%\" height=\"100%\" fill=\"#ffffff\"/>\n{text_elements}</svg>\n"
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pdf_errors_instead_of_producing_output() {
+        assert!(apply(ExportFormat::Pdf, "anything").is_err());
+    }
+
+    #[test]
+    fn html_wraps_in_pre_and_escapes_content() {
+        let out = apply(ExportFormat::Html, "<b>hi</b>").unwrap();
+        assert!(out.contains("<pre>&lt;b&gt;hi&lt;/b&gt;</pre>"));
+    }
+
+    #[test]
+    fn longest_backtick_run_counts_contiguous_runs_only() {
+        assert_eq!(longest_backtick_run("no backticks"), 0);
+        assert_eq!(longest_backtick_run("one ` here"), 1);
+        assert_eq!(longest_backtick_run("a ``` fence ` elsewhere"), 3);
+    }
+
+    #[test]
+    fn md_fence_is_longer_than_any_embedded_backtick_run() {
+        let out = apply(ExportFormat::Md, "some ``` content").unwrap();
+        let fence_line = out.lines().next().unwrap();
+        // Longest run in content is 3, so the fence must be at least 4.
+        assert!(fence_line.starts_with("````"));
+    }
+
+    #[test]
+    fn md_uses_minimum_three_backtick_fence_for_plain_content() {
+        let out = apply(ExportFormat::Md, "plain text").unwrap();
+        assert!(out.starts_with("```text\n"));
+        assert!(out.trim_end().ends_with("```"));
+    }
+
+    #[test]
+    fn md_ensures_a_trailing_newline_before_the_closing_fence() {
+        // No trailing newline in the input must not merge the last content
+        // line into the closing fence line.
+        let out = apply(ExportFormat::Md, "no trailing newline").unwrap();
+        assert!(out.contains("no trailing newline\n```\n"));
+    }
+
+    #[test]
+    fn svg_emits_one_text_element_per_line() {
+        let out = svg("line one\nline two\nline three");
+        assert_eq!(out.matches("<text").count(), 3);
+    }
+
+    #[test]
+    fn svg_escapes_xml_special_characters() {
+        let out = svg("<tag>&\"'</tag>");
+        assert!(out.contains("&lt;tag&gt;&amp;&quot;&#39;&lt;/tag&gt;"));
+    }
+}
