@@ -8,6 +8,7 @@ use render::{
     chart::{ChartRenderer, ChartType},
     dashboard::DashboardRenderer,
     table::TableRenderer,
+    timeline::TimelineRenderer,
 };
 use std::error::Error;
 use std::io::{IsTerminal, Read, Write};
@@ -17,6 +18,7 @@ enum Mode {
     Table,
     Dashboard,
     Chart,
+    Timeline,
 }
 
 /// A universal renderer for structured CLI output — see docs/presentation-command.md
@@ -52,7 +54,7 @@ struct Cli {
 /// wins outright; otherwise the payload's `schema` is looked up in the
 /// built-in registry (docs/presentation-protocol.md §5.2). A schema that is
 /// unrecognized, or that maps to a renderer this build doesn't implement
-/// (`map`, `timeline`, ...), warns on stderr and falls back to `table`, per
+/// (`map`, ...), warns on stderr and falls back to `table`, per
 /// docs/schema-registry.md §9.
 fn resolve_mode(cli_mode: Option<Mode>, schema: Option<&str>) -> Mode {
     if let Some(mode) = cli_mode {
@@ -65,6 +67,7 @@ fn resolve_mode(cli_mode: Option<Mode>, schema: Option<&str>) -> Mode {
         Some("table") => Mode::Table,
         Some("dashboard") => Mode::Dashboard,
         Some("chart") => Mode::Chart,
+        Some("timeline") => Mode::Timeline,
         Some(other) => {
             eprintln!(
                 "presentation: renderer '{other}' for schema '{schema}' is not implemented yet; falling back to table"
@@ -105,6 +108,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Mode::Chart => Box::new(ChartRenderer {
             chart_type: cli.chart_type,
         }),
+        Mode::Timeline => Box::new(TimelineRenderer),
     };
     let rendered = renderer.render(&envelope.data, &options)?;
 

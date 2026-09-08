@@ -3,6 +3,7 @@
 pub mod chart;
 pub mod dashboard;
 pub mod table;
+pub mod timeline;
 
 use serde_json::Value;
 use std::error::Error;
@@ -54,4 +55,27 @@ pub(crate) fn sorted_filtered<'a>(data: &'a [Value], options: &RenderOptions) ->
         rows.sort_by(|a, b| compare_field(a, field, b, field));
     }
     rows
+}
+
+/// Truncates `s` to at most `width` characters, marking truncation with `…`.
+pub(crate) fn truncate(s: &str, width: usize) -> String {
+    if s.chars().count() <= width {
+        s.to_string()
+    } else if width == 0 {
+        String::new()
+    } else {
+        let head: String = s.chars().take(width - 1).collect();
+        format!("{head}…")
+    }
+}
+
+/// Finds the first of `candidates` that exists as a key in `obj`.
+pub(crate) fn pick_field(
+    obj: &serde_json::Map<String, Value>,
+    candidates: &[&str],
+) -> Option<String> {
+    candidates
+        .iter()
+        .find(|c| obj.contains_key(**c))
+        .map(|c| c.to_string())
 }

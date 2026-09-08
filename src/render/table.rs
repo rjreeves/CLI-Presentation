@@ -1,6 +1,6 @@
 //! `table` mode — see docs/presentation-command.md §3.
 
-use super::{RenderOptions, Renderer, cell_text, sorted_filtered};
+use super::{RenderOptions, Renderer, cell_text, sorted_filtered, truncate};
 use crossterm::style::{Color, Stylize};
 use serde_json::Value;
 use std::error::Error;
@@ -60,17 +60,6 @@ fn columns(rows: &[&Value]) -> Vec<String> {
         .and_then(|v| v.as_object())
         .map(|obj| obj.keys().cloned().collect())
         .unwrap_or_default()
-}
-
-fn truncate(s: &str, width: usize) -> String {
-    if s.chars().count() <= width {
-        s.to_string()
-    } else if width == 0 {
-        String::new()
-    } else {
-        let head: String = s.chars().take(width - 1).collect();
-        format!("{head}…")
-    }
 }
 
 fn format_row(columns: &[String], widths: &[usize]) -> String {
