@@ -1,4 +1,5 @@
 mod protocol;
+mod registry;
 mod render;
 
 use clap::{Parser, ValueEnum};
@@ -21,9 +22,10 @@ enum Mode {
 /// A universal renderer for structured CLI output — see docs/presentation-command.md
 #[derive(Parser)]
 struct Cli {
-    /// Renderer mode. Defaults to `table` (schema-based auto-selection is not yet implemented).
-    #[arg(value_enum, default_value = "table")]
-    mode: Mode,
+    /// Renderer mode. If omitted, selected from the payload's `schema` field
+    /// (see docs/presentation-protocol.md §5.2), falling back to `table`.
+    #[arg(value_enum)]
+    mode: Option<Mode>,
 
     /// Sort rows by this field.
     #[arg(long)]
@@ -46,6 +48,36 @@ struct Cli {
     chart_type: ChartType,
 }
 
+/// Resolves the renderer to use: an explicit `--mode`/positional argument
+/// wins outright; otherwise the payload's `schema` is looked up in the
+/// built-in registry (docs/presentation-protocol.md §5.2). A schema that is
+/// unrecognized, or that maps to a renderer this build doesn't implement
+/// (`map`, `timeline`, ...), warns on stderr and falls back to `table`, per
+/// docs/schema-registry.md §9.
+fn resolve_mode(cli_mode: Option<Mode>, schema: Option<&str>) -> Mode {
+    if let Some(mode) = cli_mode {
+        return mode;
+    }
+    let Some(schema) = schema else {
+        return Mode::Table;
+    };
+    match registry::default_renderer(schema) {
+        Some("table") => Mode::Table,
+        Some("dashboard") => Mode::Dashboard,
+        Some("chart") => Mode::Chart,
+        Some(other) => {
+            eprintln!(
+                "presentation: renderer '{other}' for schema '{schema}' is not implemented yet; falling back to table"
+            );
+            Mode::Table
+        }
+        None => {
+            eprintln!("presentation: unknown schema '{schema}'; falling back to table");
+            Mode::Table
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
@@ -66,7 +98,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         color: cli.output.is_none() && std::io::stdout().is_terminal(),
     };
 
-    let renderer: Box<dyn Renderer> = match cli.mode {
+    let mode = resolve_mode(cli.mode, envelope.schema.as_deref());
+    let renderer: Box<dyn Renderer> = match mode {
         Mode::Table => Box::new(TableRenderer),
         Mode::Dashboard => Box::new(DashboardRenderer),
         Mode::Chart => Box::new(ChartRenderer {

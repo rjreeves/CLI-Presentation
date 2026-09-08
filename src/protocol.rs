@@ -5,6 +5,8 @@ use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
 pub struct Envelope {
+    #[serde(default)]
+    pub schema: Option<String>,
     pub data: Vec<Value>,
 }
 
