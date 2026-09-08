@@ -2,7 +2,7 @@ mod protocol;
 mod registry;
 mod render;
 
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use render::{
     RenderOptions, Renderer,
     ai_summary::AiSummaryRenderer,
@@ -31,9 +31,32 @@ enum Mode {
     AiSummary,
 }
 
+#[derive(Subcommand)]
+enum Command {
+    /// Register a schema in the user registry (~/.presentation/registry.json)
+    /// — see docs/schema-registry.md §4.
+    Register {
+        /// Schema name, e.g. `myapp.metrics`.
+        #[arg(long)]
+        schema: String,
+        /// Default renderer for this schema.
+        #[arg(long)]
+        renderer: String,
+        /// Path to a field-definitions JSON file (see schema-registry.md §10).
+        #[arg(long)]
+        fields: Option<String>,
+    },
+    /// Validate a PPS payload from stdin against the schema registry — see
+    /// docs/schema-registry.md §5.
+    Validate,
+}
+
 /// A universal renderer for structured CLI output — see docs/presentation-command.md
 #[derive(Parser)]
 struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+
     /// Renderer mode. If omitted, selected from the payload's `schema` field
     /// (see docs/presentation-protocol.md §5.2), falling back to `table`.
     #[arg(value_enum)]
@@ -66,7 +89,8 @@ struct Cli {
 
 /// Resolves the renderer to use: an explicit `--mode`/positional argument
 /// wins outright; otherwise the payload's `schema` is looked up in the
-/// built-in registry (docs/presentation-protocol.md §5.2). A schema that is
+/// merged registry (user-registered schemas take precedence over
+/// built-ins — see registry::resolve_renderer). A schema that is
 /// unrecognized, or that maps to a renderer this build doesn't implement,
 /// warns on stderr and falls back to `table`, per docs/schema-registry.md
 /// §9.
@@ -77,7 +101,7 @@ fn resolve_mode(cli_mode: Option<Mode>, schema: Option<&str>) -> Mode {
     let Some(schema) = schema else {
         return Mode::Table;
     };
-    match registry::default_renderer(schema) {
+    match registry::resolve_renderer(schema).as_deref() {
         Some("table") => Mode::Table,
         Some("dashboard") => Mode::Dashboard,
         Some("chart") => Mode::Chart,
@@ -102,6 +126,21 @@ fn resolve_mode(cli_mode: Option<Mode>, schema: Option<&str>) -> Mode {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
+
+    if let Some(command) = cli.command {
+        return match command {
+            Command::Register {
+                schema,
+                renderer,
+                fields,
+            } => registry::register(&schema, &renderer, fields.as_deref()),
+            Command::Validate => {
+                let mut input = String::new();
+                std::io::stdin().read_to_string(&mut input)?;
+                registry::validate(&input)
+            }
+        };
+    }
 
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
