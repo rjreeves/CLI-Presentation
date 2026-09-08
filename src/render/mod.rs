@@ -1,5 +1,6 @@
 //! Renderer trait — see docs/renderer-architecture.md §5.
 
+pub mod chart;
 pub mod dashboard;
 pub mod table;
 
