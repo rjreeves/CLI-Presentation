@@ -1,6 +1,6 @@
 //! `table` mode — see docs/presentation-command.md §3.
 
-use super::{RenderOptions, Renderer};
+use super::{RenderOptions, Renderer, cell_text, sorted_filtered};
 use crossterm::style::{Color, Stylize};
 use serde_json::Value;
 use std::error::Error;
@@ -9,12 +9,7 @@ pub struct TableRenderer;
 
 impl Renderer for TableRenderer {
     fn render(&self, data: &[Value], options: &RenderOptions) -> Result<String, Box<dyn Error>> {
-        let mut rows: Vec<&Value> = data.iter().filter(|v| passes_filter(v, options)).collect();
-
-        if let Some(field) = &options.sort {
-            rows.sort_by(|a, b| compare_field(a, field, b, field));
-        }
-
+        let rows = sorted_filtered(data, options);
         let columns = columns(&rows);
         if columns.is_empty() {
             return Ok(String::new());
@@ -67,14 +62,6 @@ fn columns(rows: &[&Value]) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn cell_text(row: &Value, field: &str) -> String {
-    match row.get(field) {
-        Some(Value::String(s)) => s.clone(),
-        Some(Value::Null) | None => String::new(),
-        Some(v) => v.to_string(),
-    }
-}
-
 fn truncate(s: &str, width: usize) -> String {
     if s.chars().count() <= width {
         s.to_string()
@@ -83,21 +70,6 @@ fn truncate(s: &str, width: usize) -> String {
     } else {
         let head: String = s.chars().take(width - 1).collect();
         format!("{head}…")
-    }
-}
-
-fn passes_filter(row: &Value, options: &RenderOptions) -> bool {
-    match &options.filter {
-        None => true,
-        Some((field, expected)) => cell_text(row, field) == *expected,
-    }
-}
-
-fn compare_field(a: &Value, fa: &str, b: &Value, fb: &str) -> std::cmp::Ordering {
-    let (av, bv) = (a.get(fa), b.get(fb));
-    match (av.and_then(Value::as_f64), bv.and_then(Value::as_f64)) {
-        (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
-        _ => cell_text(a, fa).cmp(&cell_text(b, fb)),
     }
 }
 

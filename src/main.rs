@@ -2,13 +2,14 @@ mod protocol;
 mod render;
 
 use clap::{Parser, ValueEnum};
-use render::{RenderOptions, Renderer, table::TableRenderer};
+use render::{RenderOptions, Renderer, dashboard::DashboardRenderer, table::TableRenderer};
 use std::error::Error;
 use std::io::{IsTerminal, Read, Write};
 
 #[derive(Copy, Clone, ValueEnum)]
 enum Mode {
     Table,
+    Dashboard,
 }
 
 /// A universal renderer for structured CLI output — see docs/presentation-command.md
@@ -57,6 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let renderer: Box<dyn Renderer> = match cli.mode {
         Mode::Table => Box::new(TableRenderer),
+        Mode::Dashboard => Box::new(DashboardRenderer),
     };
     let rendered = renderer.render(&envelope.data, &options)?;
 
