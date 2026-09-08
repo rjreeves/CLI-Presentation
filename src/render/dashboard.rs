@@ -13,7 +13,7 @@ const GAUGE_FIELDS: &[&str] = &[
     "signal", "usage", "percent", "cpu", "memory", "battery", "load",
 ];
 const GAUGE_WIDTH: usize = 20;
-const TITLE_FIELDS: &[&str] = &["name", "interface", "ssid", "host", "id"];
+const TITLE_FIELDS: &[&str] = &["name", "interface", "ssid", "host", "hostname", "id"];
 
 pub struct DashboardRenderer;
 
