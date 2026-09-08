@@ -10,12 +10,11 @@
 //! Graphviz and AI modules from renderer-architecture.md §3.3/§4, which
 //! don't exist in this codebase yet.
 
-use super::{RenderOptions, Renderer, cell_text, columns, sorted_filtered};
+use super::{
+    DOWN_VALUES, RenderOptions, Renderer, STATUS_FIELDS, cell_text, columns, sorted_filtered,
+};
 use serde_json::Value;
 use std::error::Error;
-
-const STATUS_FIELDS: &[&str] = &["status", "state", "level"];
-const DOWN_VALUES: &[&str] = &["down", "error", "offline", "inactive", "critical", "fatal"];
 
 pub struct MarkdownRenderer;
 

@@ -1,8 +1,11 @@
 //! Renderer trait — see docs/renderer-architecture.md §5.
 
+pub mod ai_summary;
 pub mod chart;
 pub mod dashboard;
+pub mod explain;
 pub mod html;
+mod insights;
 pub mod map;
 pub mod md;
 pub mod table;
@@ -17,6 +20,13 @@ pub struct RenderOptions {
     pub width: Option<usize>,
     pub color: bool,
 }
+
+/// Column names that plausibly hold a status/health/severity value, shared
+/// by every renderer that highlights or reasons about them.
+pub(crate) const STATUS_FIELDS: &[&str] = &["status", "state", "level"];
+pub(crate) const UP_VALUES: &[&str] = &["up", "active", "ok", "online", "info"];
+pub(crate) const DOWN_VALUES: &[&str] =
+    &["down", "error", "offline", "inactive", "critical", "fatal"];
 
 pub trait Renderer {
     fn render(&self, data: &[Value], options: &RenderOptions) -> Result<String, Box<dyn Error>>;

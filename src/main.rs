@@ -5,8 +5,10 @@ mod render;
 use clap::{Parser, ValueEnum};
 use render::{
     RenderOptions, Renderer,
+    ai_summary::AiSummaryRenderer,
     chart::{ChartRenderer, ChartType},
     dashboard::DashboardRenderer,
+    explain::{ExplainLevel, ExplainRenderer},
     html::HtmlRenderer,
     map::MapRenderer,
     md::MarkdownRenderer,
@@ -25,6 +27,8 @@ enum Mode {
     Map,
     Html,
     Md,
+    Explain,
+    AiSummary,
 }
 
 /// A universal renderer for structured CLI output — see docs/presentation-command.md
@@ -54,6 +58,10 @@ struct Cli {
     /// Chart style, for `chart` mode.
     #[arg(long, value_enum, default_value = "bar")]
     chart_type: ChartType,
+
+    /// AI verbosity, for `explain`/`ai-summary` modes.
+    #[arg(long, value_enum, default_value = "brief")]
+    explain_level: ExplainLevel,
 }
 
 /// Resolves the renderer to use: an explicit `--mode`/positional argument
@@ -77,6 +85,8 @@ fn resolve_mode(cli_mode: Option<Mode>, schema: Option<&str>) -> Mode {
         Some("map") => Mode::Map,
         Some("html") => Mode::Html,
         Some("md") => Mode::Md,
+        Some("explain") => Mode::Explain,
+        Some("ai-summary") => Mode::AiSummary,
         Some(other) => {
             eprintln!(
                 "presentation: renderer '{other}' for schema '{schema}' is not implemented yet; falling back to table"
@@ -121,6 +131,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         Mode::Map => Box::new(MapRenderer),
         Mode::Html => Box::new(HtmlRenderer),
         Mode::Md => Box::new(MarkdownRenderer),
+        Mode::Explain => Box::new(ExplainRenderer {
+            level: cli.explain_level,
+        }),
+        Mode::AiSummary => Box::new(AiSummaryRenderer {
+            level: cli.explain_level,
+        }),
     };
     let rendered = renderer.render(&envelope.data, &options)?;
 
