@@ -12,6 +12,8 @@ myapp --json                | presentation
 
 That last one has no mode at all: if the payload carries a `schema` field, `presentation` picks a sensible renderer for you.
 
+![presentation dashboard and map modes](docs/assets/demo.svg)
+
 ## Why
 
 Structured CLI output (`--json` flags, `kubectl -o json`, log tools, metrics agents) is easy to produce and unpleasant to read. `presentation` is a single, tool-agnostic sink: any producer that emits the [Presentation Protocol](docs/presentation-protocol.md) (really just `{"data": [...]}`) gets tables, dashboards, charts, timelines, topology maps, and reports for free.
