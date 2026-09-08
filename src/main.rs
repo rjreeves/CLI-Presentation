@@ -2,7 +2,7 @@ mod protocol;
 mod render;
 
 use clap::{Parser, ValueEnum};
-use render::{table::TableRenderer, RenderOptions, Renderer};
+use render::{RenderOptions, Renderer, table::TableRenderer};
 use std::error::Error;
 use std::io::{IsTerminal, Read, Write};
 

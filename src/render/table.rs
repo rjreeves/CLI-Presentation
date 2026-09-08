@@ -37,7 +37,9 @@ impl Renderer for TableRenderer {
         let mut out = String::new();
         out.push_str(&format_row(&columns, &widths));
         out.push('\n');
-        out.push_str(&"-".repeat(widths.iter().sum::<usize>() + (widths.len().saturating_sub(1)) * 3));
+        out.push_str(
+            &"-".repeat(widths.iter().sum::<usize>() + (widths.len().saturating_sub(1)) * 3),
+        );
         out.push('\n');
         for row in &rows {
             let cells: Vec<String> = columns
@@ -45,7 +47,12 @@ impl Renderer for TableRenderer {
                 .zip(&widths)
                 .map(|(c, w)| truncate(&cell_text(row, c), *w))
                 .collect();
-            out.push_str(&format_colored_row(&columns, &cells, &widths, options.color));
+            out.push_str(&format_colored_row(
+                &columns,
+                &cells,
+                &widths,
+                options.color,
+            ));
             out.push('\n');
         }
 
@@ -103,7 +110,12 @@ fn format_row(columns: &[String], widths: &[usize]) -> String {
         .join(" | ")
 }
 
-fn format_colored_row(columns: &[String], cells: &[String], widths: &[usize], color: bool) -> String {
+fn format_colored_row(
+    columns: &[String],
+    cells: &[String],
+    widths: &[usize],
+    color: bool,
+) -> String {
     columns
         .iter()
         .zip(cells)
