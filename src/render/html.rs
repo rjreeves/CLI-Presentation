@@ -13,7 +13,7 @@
 
 use super::{
     DOWN_VALUES, RenderOptions, Renderer, STATUS_FIELDS, UP_VALUES, cell_text, columns,
-    sorted_filtered,
+    escape_html as escape, sorted_filtered,
 };
 use serde_json::Value;
 use std::error::Error;
@@ -92,21 +92,6 @@ fn status_class(column: &str, value: &str) -> &'static str {
     } else {
         ""
     }
-}
-
-fn escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&#39;"),
-            _ => out.push(c),
-        }
-    }
-    out
 }
 
 fn document(body: &str) -> String {

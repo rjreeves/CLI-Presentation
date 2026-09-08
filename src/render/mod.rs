@@ -100,3 +100,20 @@ pub(crate) fn pick_field(
         .find(|c| obj.contains_key(**c))
         .map(|c| c.to_string())
 }
+
+/// Escapes the five characters that are significant in both HTML and XML
+/// (SVG) text content — shared by html mode and `--export html`/`svg`.
+pub(crate) fn escape_html(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
