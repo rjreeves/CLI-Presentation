@@ -115,6 +115,7 @@ CI runs all three on every push.
 - [`docs/schema-registry.md`](docs/schema-registry.md) — schema → renderer registry format
 - [`docs/renderer-architecture.md`](docs/renderer-architecture.md) — internal renderer design
 - [`docs/scope-decisions.md`](docs/scope-decisions.md) — where this implementation deliberately diverges from or narrows the specs above, and why
+- [`CHANGELOG.md`](CHANGELOG.md) — release history
 
 ## License
 
